@@ -212,16 +212,16 @@ const MODEL_PROVIDER_MAP = {};
 
 // 随机提示词库
 const RANDOM_PROMPTS = [
-  'a cute lobster AI assistant with glowing blue eyes, futuristic laboratory, cinematic lighting',
-  'cyberpunk cat samurai, neon lights, blood splattered, beautiful colors, detailed',
-  'a wide aerial view of a floating elven city in the sky, golden light, majestic atmosphere',
-  'a photorealistic robot portrait, detailed mechanical parts, blue LED eyes, dark background',
-  'dreamy landscape with giant mushrooms and fireflies, bioluminescent, fantasy art',
-  'an astronaut floating in space with colorful nebula behind, photorealistic, 8k detail',
-  'a vintage Japanese street scene with cherry blossoms, soft lighting, nostalgic atmosphere',
-  'a dragon made of crystalline ice, glowing blue, snowy mountain background, fantasy art',
-  'steampunk mechanical owl with brass gears and amber eyes, detailed, Victorian style',
-  'a serene Japanese garden with koi pond, autumn leaves, soft morning light',
+  'a massive ancient treehouse village built into a giant sequoia, sunset golden hour, Studio Ghibli style',
+  'a cyberpunk street food stall in neon-lit Tokyo alley, steam rising, rain reflections, cinematic',
+  'a sleeping cat curled up on a stack of colorful wool blankets, soft morning light, cozy atmosphere',
+  'underwater art deco city with glass domes and bioluminescent jellyfish floating through the halls',
+  'a lone astronaut tending a wildflower garden on the lunar surface, Earth visible in the sky',
+  'Art Deco poster style: a roaring 1920s jazz club with geometric patterns, gold and black palette',
+  'a giant owl made of intricate stained glass, sunlight passing through creating rainbow patterns on the floor',
+  'cozy autumn cabin interior, warm fireplace glow, books scattered, wind howling outside, hyperrealistic',
+  'a mechanical hummingbird with copper gears and jeweled feathers, hovering over a brass telescope',
+  'floating islands connected by rope bridges, waterfalls cascading into clouds below, epic fantasy landscape',
 ];
 
 // 访问密码（留空数组则无需密码）
