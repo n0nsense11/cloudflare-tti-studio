@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cloudflare TTI Studio - 文生图</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiIgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIj4KICA8cmVjdCB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHJ4PSI2IiBmaWxsPSIjMWExYTJlIi8+CiAgPHBhdGggZD0iTTAsMzIgTDUsMjIgTDEwLDI2IEwxNiwxNiBMMjIsMjQgTDI3LDE4IEwzMiwyNSBMMzIsMzIgWiIgZmlsbD0iIzNkMmE1YyIvPgogIDxjaXJjbGUgY3g9IjE2IiBjeT0iMTQiIHI9IjUiIGZpbGw9IiNGNjgyMUYiLz4KICA8Y2lyY2xlIGN4PSI3IiBjeT0iOCIgcj0iMSIgZmlsbD0iI2ZmZiIgb3BhY2l0eT0iMC43Ii8+CiAgPGNpcmNsZSBjeD0iMjUiIGN5PSI2IiByPSIxIiBmaWxsPSIjZmZmIiBvcGFjaXR5PSIwLjYiLz4KPC9zdmc+Cg==">
+  <style>
+    /* ─── 变量 & 主题 ─────────────────────────────────────────── */
+    :root {
+      /* 白天模式：米黄色 + 淡棕色 */
+      --bg-primary: #1a1a1a;
+      --bg-secondary: #000000;
+      --bg-card: #111111;
+      --bg-input: #1e1e1e;
+      --border: #333333;
+      --text-primary: #ffffff;
+      --text-secondary: #b0b0b0;
+      --accent: #e8d5b7;
+      --accent-hover: #f0e4c8;
+      --accent-glow: rgba(232, 213, 183, 0.15);
+      --success: #6fcf97;
+      --error: #eb5757;
+      --warning: #f2994a;
+      --radius: 12px;
+      --shadow: 0 4px 24px rgba(0,0,0,0.5);
+      --transition: 0.2s ease;
+    }
+    [data-theme="light"] {
+      --bg-primary: #faf3e0;
+      --bg-secondary: #f5e6c8;
+      --bg-card: #fffbf0;
+      --bg-input: #f0e0c0;
+      --border: #d4b896;
+      --text-primary: #3d2b1f;
+      --text-secondary: #8b7355;
+      --accent: #8b6914;
+      --accent-hover: #a07828;
+      --accent-glow: rgba(139, 105, 20, 0.12);
+      --success: #27ae60;
+      --error: #c0392b;
+      --warning: #d97706;
+      --shadow: 0 4px 24px rgba(61, 43, 31, 0.12);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      transition: background var(--transition), color var(--transition);
+    }
+    body, html { scroll-behavior: smooth; }
+
+    /* ─── 头部 ──────────────────────────────────────────────── */
+    header {
+      position: sticky; top: 0; z-index: 100;
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border);
+      padding: 0 24px;
+      backdrop-filter: blur(12px);
+    }
+    .header-inner {
+      max-width: 1400px; margin: 0 auto;
+      display: flex; align-items: center; justify-content: space-between;
+      height: 60px; gap: 16px;
+    }
+    .logo { display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 700; letter-spacing: -0.3px; }
+    .logo-icon { width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0; }
+    .header-actions { display: flex; align-items: center; gap: 8px; }
+    .theme-btn {
+      width: 36px; height: 36px; border-radius: 8px;
+      background: var(--bg-card); border: 1px solid var(--border);
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      font-size: 16px; color: var(--text-secondary);
+      transition: all var(--transition);
+    }
+    .theme-btn:hover { background: var(--bg-input); color: var(--text-primary); }
+
+    /* ─── 主布局 ─────────────────────────────────────────────── */
+    main { max-width: 1400px; margin: 0 auto; padding: 24px; }
+    .layout { display: grid; grid-template-columns: 380px 1fr; gap: 20px; align-items: start; }
+    @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
+
+    /* ─── 卡片 ──────────────────────────────────────────────── */
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      box-shadow: var(--shadow);
+    }
+    .card-title {
+      font-size: 13px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.8px; color: var(--text-secondary);
+      margin-bottom: 16px;
+    }
+
+    /* ─── 模型选择 ──────────────────────────────────────────── */
+    .model-grid { display: flex; flex-direction: column; gap: 8px; max-height: 400px; overflow-y: auto; padding-right: 4px; }
+    .model-grid::-webkit-scrollbar { width: 4px; }
+    .model-grid::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+    .model-item {
+      padding: 10px 12px; border-radius: 8px; cursor: pointer;
+      border: 2px solid transparent; background: var(--bg-input);
+      transition: all var(--transition);
+    }
+    .model-item:hover { border-color: var(--accent); background: var(--bg-secondary); }
+    .model-item.selected { border-color: var(--accent); background: var(--accent-glow); }
+    .model-item-name { font-size: 14px; font-weight: 600; margin-bottom: 3px; }
+    .model-item-desc { font-size: 11px; color: var(--text-secondary); line-height: 1.4; }
+    .model-item-badge {
+      display: inline-block; font-size: 9px; padding: 1px 6px; border-radius: 4px;
+      background: var(--accent); color: #fff; margin-left: 6px; vertical-align: middle;
+    }
+
+    /* ─── 表单元素 ──────────────────────────────────────────── */
+    .form-group { margin-bottom: 14px; }
+    label { display: block; font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+    input[type="text"], input[type="number"], select, textarea {
+      width: 100%; padding: 10px 12px; border-radius: 8px;
+      background: var(--bg-input); border: 1px solid var(--border);
+      color: var(--text-primary); font-size: 14px;
+      transition: border-color var(--transition);
+      outline: none;
+    }
+    input:focus, select:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+    textarea { resize: vertical; min-height: 80px; line-height: 1.5; }
+    select { cursor: pointer; appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%238888aa' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right 12px center;
+      padding-right: 32px;
+    }
+    .input-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .input-hint { font-size: 11px; color: var(--text-secondary); margin-top: 4px; }
+
+    /* ─── 高级选项 ──────────────────────────────────────────── */
+    .toggle-section {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 0; border-top: 1px solid var(--border); margin-top: 4px; cursor: pointer; user-select: none;
+    }
+    .toggle-section span { font-size: 13px; font-weight: 600; color: var(--text-secondary); }
+    .toggle-icon { transition: transform 0.2s; color: var(--text-secondary); }
+    .toggle-icon.open { transform: rotate(180deg); }
+    .advanced-options { overflow: hidden; transition: max-height 0.3s ease; max-height: 0; }
+    .advanced-options.open { max-height: 600px; }
+    .adv-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+    /* ─── 密码框 ────────────────────────────────────────────── */
+    .password-section { margin-bottom: 14px; }
+    .password-input-wrap { position: relative; }
+    .password-input-wrap input { padding-right: 40px; }
+    .password-toggle {
+      position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+      background: none; border: none; cursor: pointer;
+      color: var(--text-secondary); font-size: 14px;
+    }
+
+    /* ─── 生成按钮 ─────────────────────────────────────────── */
+    .generate-btn {
+      width: 100%; padding: 14px; border-radius: 10px;
+      background: var(--accent); color: #fff;
+      font-size: 15px; font-weight: 700; border: none; cursor: pointer;
+      transition: all var(--transition);
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      margin-top: 8px;
+    }
+    .generate-btn:hover { background: var(--accent-hover); transform: translateY(-1px); box-shadow: 0 4px 16px var(--accent-glow); }
+    .generate-btn:active { transform: translateY(0); }
+    .generate-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+    .generate-btn .spinner {
+      width: 18px; height: 18px; border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #fff; border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ─── 提示词工具 ────────────────────────────────────────── */
+    .prompt-tools { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+    .tool-btn {
+      padding: 5px 10px; border-radius: 6px; font-size: 12px; font-weight: 500;
+      background: var(--bg-input); border: 1px solid var(--border);
+      color: var(--text-secondary); cursor: pointer; transition: all var(--transition);
+    }
+    .tool-btn:hover { background: var(--bg-secondary); color: var(--text-primary); border-color: var(--accent); }
+
+    /* ─── 图片展示区 ────────────────────────────────────────── */
+    .preview-area { min-height: 400px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    .preview-placeholder {
+      text-align: center; color: var(--text-secondary);
+      padding: 60px 20px;
+    }
+    .preview-placeholder-icon { font-size: 64px; margin-bottom: 16px; opacity: 0.3; }
+    .preview-placeholder p { font-size: 14px; line-height: 1.6; }
+    .preview-image-wrap { position: relative; width: 100%; }
+    .preview-image {
+      width: 100%; border-radius: var(--radius);
+      border: 1px solid var(--border);
+      display: block;
+    }
+    .preview-toolbar {
+      display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap;
+      justify-content: center;
+    }
+    .preview-action-btn {
+      padding: 8px 16px; border-radius: 8px;
+      background: var(--bg-input); border: 1px solid var(--border);
+      color: var(--text-primary); font-size: 13px; font-weight: 500;
+      cursor: pointer; display: flex; align-items: center; gap: 6px;
+      transition: all var(--transition);
+    }
+    .preview-action-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .preview-action-btn.success { color: var(--success); }
+    .preview-meta {
+      margin-top: 10px; font-size: 12px; color: var(--text-secondary);
+      text-align: center;
+    }
+
+    /* ─── 加载状态 ──────────────────────────────────────────── */
+    .loading-overlay {
+      position: fixed; inset: 0; z-index: 200;
+      background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 16px;
+    }
+    .loading-spinner-large {
+      width: 48px; height: 48px; border: 3px solid var(--border);
+      border-top-color: var(--accent); border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    .loading-text { color: #fff; font-size: 15px; font-weight: 500; }
+    .loading-model { color: rgba(255,255,255,0.6); font-size: 13px; }
+
+    /* ─── Toast 通知 ─────────────────────────────────────────── */
+    .toast {
+      position: fixed; bottom: 24px; right: 24px; z-index: 300;
+      padding: 12px 20px; border-radius: 10px;
+      background: var(--bg-card); border: 1px solid var(--border);
+      color: var(--text-primary); font-size: 14px;
+      box-shadow: var(--shadow);
+      transform: translateY(100px); opacity: 0;
+      transition: all 0.3s ease;
+    }
+    .toast.show { transform: translateY(0); opacity: 1; }
+    .toast.error { border-color: var(--error); color: var(--error); }
+    .toast.success { border-color: var(--success); color: var(--success); }
+
+    /* ─── 信息标签 ──────────────────────────────────────────── */
+    .model-info-bar {
+      display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px;
+    }
+    .model-info-tag {
+      padding: 3px 10px; border-radius: 20px;
+      background: var(--bg-input); border: 1px solid var(--border);
+      font-size: 11px; color: var(--text-secondary);
+    }
+    .model-info-tag.highlight { background: var(--accent-glow); border-color: var(--accent); color: var(--accent); }
+
+    /* ─── 参数覆盖提示 ───────────────────────────────────────── */
+    .param-override-note {
+      font-size: 11px; color: var(--warning);
+      margin-top: 4px; display: flex; align-items: center; gap: 4px;
+    }
+
+    /* ─── 页脚 ──────────────────────────────────────────────── */
+    footer {
+      text-align: center; padding: 32px 24px;
+      font-size: 12px; color: var(--text-secondary);
+      border-top: 1px solid var(--border); margin-top: 32px;
+    }
+    footer a { color: var(--accent); text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+
+    /* ─── 响应式 ────────────────────────────────────────────── */
+    @media (max-width: 600px) {
+      .header-inner { height: 52px; }
+      main { padding: 12px; }
+      .card { padding: 14px; }
+      .input-row { grid-template-columns: 1fr; }
+      .adv-grid { grid-template-columns: 1fr; }
+    }
+
+    /* ─── 图片上传区 ────────────────────────────────────────── */
+    .upload-area {
+      border: 2px dashed var(--border);
+      border-radius: 10px;
+      padding: 20px 16px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      margin-bottom: 8px;
+    }
+    .upload-area:hover { border-color: var(--accent); background: var(--accent-glow); }
+    .upload-area.dragover { border-color: var(--accent); background: var(--accent-glow); }
+    .upload-area input[type="file"] { display: none; }
+    .upload-icon { font-size: 32px; margin-bottom: 8px; }
+    .upload-hint { font-size: 12px; color: var(--text-secondary); line-height: 1.6; }
+    .upload-preview { max-width: 100%; border-radius: 8px; margin-top: 8px; display: block; }
+    .upload-remove {
+      display: inline-block; margin-top: 6px;
+      font-size: 12px; color: var(--error); cursor: pointer;
+      padding: 2px 10px; border-radius: 4px;
+    }
+    .upload-remove:hover { background: rgba(239,68,68,0.1); }
+    .upload-filename { font-size: 11px; color: var(--text-secondary); margin-top: 4px; word-break: break-all; }
+    #uploadPreviewWrap { text-align: left; }
+  </style>
+</head>
+<body>
+  <!-- 头部 -->
+  <header>
+    <div class="header-inner">
+      <div class="logo">
+        <div class="logo-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 36" width="36" height="36">
+            <defs>
+              <linearGradient id="hBg" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" style="stop-color:#1a1a2e"/>
+                <stop offset="100%" style="stop-color:#0f0f23"/>
+              </linearGradient>
+              <radialGradient id="hSun" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" style="stop-color:#FFD700"/>
+                <stop offset="60%" style="stop-color:#F6821F"/>
+                <stop offset="100%" style="stop-color:#E8541F"/>
+              </radialGradient>
+              <filter id="hGlow" x="-50%" y="-50%" width="200%" height="200%">
+                <feGaussianBlur stdDeviation="1.5" result="blur"/>
+                <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+              </filter>
+            </defs>
+            <rect width="36" height="36" rx="6" fill="url(#hBg)"/>
+            <path d="M0,36 L6,24 L12,28 L18,18 L24,26 L30,20 L36,28 L36,36 Z" fill="#3d2a5c"/>
+            <circle cx="18" cy="16" r="5" fill="url(#hSun)" filter="url(#hGlow)"/>
+            <circle cx="8" cy="10" r="1" fill="#fff" opacity="0.6">
+              <animate attributeName="opacity" values="0.6;0;0.6" dur="2s" repeatCount="indefinite"/>
+            </circle>
+            <circle cx="28" cy="8" r="1" fill="#fff" opacity="0.5">
+              <animate attributeName="opacity" values="0;0.5;0" dur="2.5s" repeatCount="indefinite" begin="0.5s"/>
+            </circle>
+          </svg>
+        </div>
+        <span>Cloudflare TTI Studio</span>
+      </div>
+      <div class="header-actions">
+        <button class="theme-btn" id="themeBtn" title="切换主题">🌙</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- 主内容 -->
+  <main>
+    <div class="layout">
+      <!-- 左侧控制面板 -->
+      <div class="left-panel">
+        <!-- 密码 -->
+        <div class="card" id="passwordCard" style="display:none">
+          <div class="card-title">🔑 访问密码</div>
+          <div class="password-section">
+            <div class="password-input-wrap">
+              <input type="password" id="passwordInput" placeholder="请输入访问密码" autocomplete="off">
+              <button class="password-toggle" id="togglePassword">👁</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 模型选择 -->
+        <div class="card">
+          <div class="card-title">🎨 选择模型</div>
+          <div class="model-grid" id="modelGrid">
+            <div style="text-align:center;padding:20px;color:var(--text-secondary)">加载中...</div>
+          </div>
+        </div>
+
+        <!-- 参数设置 -->
+        <div class="card" style="margin-top: 16px;">
+          <div class="card-title">⚙️ 生成参数</div>
+
+          <!-- 正向提示词 -->
+          <div class="form-group">
+            <label>正向提示词 *</label>
+            <textarea id="promptInput" placeholder="描述你想要生成的图片内容..."></textarea>
+            <div class="prompt-tools">
+              <button class="tool-btn" id="randomPromptBtn">🎲 随机提示词</button>
+              <button class="tool-btn" id="clearPromptBtn">🗑 清空</button>
+            </div>
+          </div>
+
+          <!-- 反向提示词 -->
+          <div class="form-group" id="negPromptGroup">
+            <label>反向提示词</label>
+            <input type="text" id="negPromptInput" placeholder="不想出现的元素（如：模糊、低质量）">
+          </div>
+
+          <!-- 尺寸 -->
+          <div class="input-row" id="sizeRow">
+            <div class="form-group">
+              <label>宽度</label>
+              <input type="number" id="widthInput" placeholder="1024" min="256" max="2048" step="64">
+            </div>
+            <div class="form-group">
+              <label>高度</label>
+              <input type="number" id="heightInput" placeholder="1024" min="256" max="2048" step="64">
+            </div>
+          </div>
+
+          <!-- 图片输入（图生图） -->
+          <div class="form-group" id="imgUploadWrap" style="display:none">
+            <label>📷 参考图片（图生图）</label>
+            <div class="upload-area" id="uploadArea">
+              <input type="file" id="imgFileInput" accept="image/*">
+              <div id="uploadPlaceholder">
+                <div class="upload-icon">🖼</div>
+                <div class="upload-hint">点击或拖拽上传参考图片<br><span style="font-size:11px;color:var(--text-secondary)">支持 PNG/JPG/WEBP，最大 10MB</span></div>
+              </div>
+              <div id="uploadPreviewWrap" style="display:none">
+                <img id="uploadPreviewImg" class="upload-preview" alt="参考图片">
+                <div class="upload-filename" id="uploadFilename"></div>
+                <span class="upload-remove" id="uploadRemove">✕ 移除</span>
+              </div>
+            </div>
+            <div class="input-hint" id="img2imgHint" style="display:none">
+              已选择参考图片，将以此图为基础进行风格转换
+            </div>
+          </div>
+
+          <!-- 高级选项 -->
+          <div class="toggle-section" id="advToggle">
+            <span>🔧 高级选项</span>
+            <span class="toggle-icon" id="toggleIcon">▼</span>
+          </div>
+          <div class="advanced-options" id="advancedOptions">
+            <div class="adv-grid">
+              <div class="form-group">
+                <label>步数 (steps)</label>
+                <input type="number" id="stepsInput" placeholder="20" min="1" max="50">
+              </div>
+              <div class="form-group">
+                <label>引导系数</label>
+                <input type="number" id="guidanceInput" placeholder="7.5" min="0" max="20" step="0.5">
+              </div>
+            </div>
+            <div class="form-group" id="seedGroup">
+              <label>随机种子</label>
+              <input type="number" id="seedInput" placeholder="留空则随机">
+            </div>
+          </div>
+
+          <!-- 生成按钮 -->
+          <button class="generate-btn" id="generateBtn">
+            <span id="btnIcon">✨</span>
+            <span id="btnText">生成图片</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 右侧预览区 -->
+      <div class="card preview-area" id="previewArea">
+        <div class="preview-placeholder" id="placeholder">
+          <div class="preview-placeholder-icon">🖼</div>
+          <p>选择模型并输入提示词<br>点击「生成图片」开始创作</p>
+        </div>
+        <div class="preview-image-wrap" id="imageWrap" style="display:none">
+          <img id="previewImage" class="preview-image" alt="生成结果">
+          <div class="preview-toolbar">
+            <button class="preview-action-btn" id="downloadBtn">📥 下载</button>
+            <button class="preview-action-btn" id="copyParamsBtn">📋 复制参数</button>
+          </div>
+          <div class="preview-meta" id="previewMeta"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- 加载遮罩 -->
+  <div class="loading-overlay" id="loadingOverlay" style="display:none">
+    <div class="loading-spinner-large"></div>
+    <div class="loading-text" id="loadingText">正在生成图片...</div>
+    <div class="loading-model" id="loadingModel"></div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <footer>
+    Powered by <a href="https://developers.cloudflare.com/workers-ai/" target="_blank">Cloudflare Workers AI</a>
+    · 支持 9 种文生图模型
+  </footer>
+
+  <script>
+    // ─── 状态 ─────────────────────────────────────────────────────────────
+    let models = [];
+    let selectedModelId = null;
+    let lastResult = null; // { imageUrl, modelId, prompt, params }
+
+    // ─── DOM ──────────────────────────────────────────────────────────────
+    const $ = id => document.getElementById(id);
+    const modelGrid       = $('modelGrid');
+    const promptInput     = $('promptInput');
+    const negPromptInput  = $('negPromptInput');
+    const widthInput      = $('widthInput');
+    const heightInput     = $('heightInput');
+    const stepsInput      = $('stepsInput');
+    const guidanceInput   = $('guidanceInput');
+    const seedInput       = $('seedInput');
+    const generateBtn     = $('generateBtn');
+    const previewArea     = $('previewArea');
+    const placeholder     = $('placeholder');
+    const imageWrap      = $('imageWrap');
+    const previewImage    = $('previewImage');
+    const previewMeta     = $('previewMeta');
+    const downloadBtn     = $('downloadBtn');
+    const copyParamsBtn   = $('copyParamsBtn');
+    const loadingOverlay  = $('loadingOverlay');
+    const loadingText     = $('loadingText');
+    const loadingModel    = $('loadingModel');
+    const toast           = $('toast');
+    const themeBtn        = $('themeBtn');
+    const advToggle       = $('advToggle');
+    const advancedOptions = $('advancedOptions');
+    const toggleIcon      = $('toggleIcon');
+    const passwordCard    = $('passwordCard');
+    const passwordInput   = $('passwordInput');
+    const imgUploadWrap   = $('imgUploadWrap');
+    const uploadArea      = $('uploadArea');
+    const imgFileInput    = $('imgFileInput');
+    const uploadPlaceholder = $('uploadPlaceholder');
+    const uploadPreviewWrap = $('uploadPreviewWrap');
+    const uploadPreviewImg  = $('uploadPreviewImg');
+    const uploadFilename    = $('uploadFilename');
+    const uploadRemove      = $('uploadRemove');
+    const img2imgHint       = $('img2imgHint');
+
+    // 当前上传的参考图片（base64）
+    let uploadedImageB64 = null;
+    let uploadedFileName = null;
+
+    // ─── 主题切换 ────────────────────────────────────────────────────────
+    const savedTheme = localStorage.getItem('theme') || 'dark';
+    document.documentElement.dataset.theme = savedTheme;
+    themeBtn.textContent = savedTheme === 'dark' ? '☀️' : '🌙';
+    themeBtn.onclick = () => {
+      const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+      document.documentElement.dataset.theme = next;
+      localStorage.setItem('theme', next);
+      themeBtn.textContent = next === 'dark' ? '☀️' : '🌙';
+    };
+
+    // ─── 高级选项折叠 ────────────────────────────────────────────────────
+    advToggle.onclick = () => {
+      const isOpen = advancedOptions.classList.toggle('open');
+      toggleIcon.classList.toggle('open', isOpen);
+    };
+
+    // ─── 密码显示切换 ────────────────────────────────────────────────────
+    $('togglePassword').onclick = () => {
+      const el = passwordInput;
+      el.type = el.type === 'password' ? 'text' : 'password';
+    };
+
+    // ─── Toast ───────────────────────────────────────────────────────────
+    function showToast(msg, type = '') {
+      toast.textContent = msg;
+      toast.className = 'toast ' + type;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 3000);
+    }
+
+    // ─── 模型加载 ────────────────────────────────────────────────────────
+    async function loadModels() {
+      try {
+        const res = await fetch('/api/models');
+        if (!res.ok) throw new Error('Failed to load models');
+        models = await res.json();
+        renderModels();
+      } catch (e) {
+        modelGrid.innerHTML = `<div style="color:var(--error);padding:16px;font-size:13px">加载模型列表失败: ${e.message}</div>`;
+      }
+    }
+
+    function renderModels() {
+      modelGrid.innerHTML = models.map(m => `
+        <div class="model-item${m.id === selectedModelId ? ' selected' : ''}" data-id="${m.id}">
+          <div class="model-item-name">
+            ${m.name}
+            ${m.supportsImg2Img || m.supportsInpainting ? '<span class="model-item-badge">Beta</span>' : ''}
+          </div>
+          <div class="model-item-desc">${m.description}</div>
+        </div>
+      `).join('');
+
+      // 点击选择
+      modelGrid.querySelectorAll('.model-item').forEach(el => {
+        el.onclick = () => selectModel(el.dataset.id);
+      });
+
+      // 默认选第一个
+      if (!selectedModelId && models.length > 0) {
+        selectModel(models[0].id);
+      }
+    }
+
+    function selectModel(id) {
+      selectedModelId = id;
+      const m = models.find(m => m.id === id);
+      if (!m) return;
+
+      // 更新选中态
+      modelGrid.querySelectorAll('.model-item').forEach(el => {
+        el.classList.toggle('selected', el.dataset.id === id);
+      });
+
+      // 应用模型默认值
+      widthInput.value = m.defaultWidth || '';
+      heightInput.value = m.defaultHeight || '';
+      stepsInput.value = m.defaultSteps || '';
+      guidanceInput.value = m.defaultGuidance || '';
+
+      // 根据模型能力显示/隐藏字段
+      $('negPromptGroup').style.display = m.supportsNegativePrompt ? 'block' : 'none';
+      $('sizeRow').style.display = (m.supportsWidth || m.supportsHeight) ? 'grid' : 'none';
+      $('advToggle').style.display =
+        (m.supportsSteps || m.supportsGuidance || m.supportsSeed) ? 'flex' : 'none';
+      $('seedGroup').style.display = m.supportsSeed ? 'block' : 'none';
+      // 图生图上传入口
+      imgUploadWrap.style.display = m.supportsImg2Img ? 'block' : 'none';
+      if (!m.supportsImg2Img) { resetUpload(); }
+
+      // steps 范围
+      if (m.stepsRange) {
+        stepsInput.min = m.stepsRange[0];
+        stepsInput.max = m.stepsRange[1];
+      } else {
+        stepsInput.min = 1; stepsInput.max = 50;
+      }
+    }
+
+    // ─── 随机提示词 ─────────────────────────────────────────────────────
+    async function loadRandomPrompt() {
+      try {
+        const res = await fetch('/api/prompts');
+        if (!res.ok) return;
+        const prompts = await res.json();
+        promptInput.value = prompts[Math.floor(Math.random() * prompts.length)];
+      } catch {}
+    }
+    $('randomPromptBtn').onclick = loadRandomPrompt;
+    $('clearPromptBtn').onclick = () => { promptInput.value = ''; promptInput.focus(); };
+
+    // ─── 图片上传 ────────────────────────────────────────────────────────
+    function resetUpload() {
+      uploadedImageB64 = null;
+      uploadedFileName = null;
+      imgFileInput.value = '';
+      uploadPlaceholder.style.display = 'block';
+      uploadPreviewWrap.style.display = 'none';
+    }
+
+    uploadArea.onclick = () => imgFileInput.click();
+
+    uploadArea.addEventListener('dragover', e => {
+      e.preventDefault();
+      uploadArea.classList.add('dragover');
+    });
+    uploadArea.addEventListener('dragleave', () => {
+      uploadArea.classList.remove('dragover');
+    });
+    uploadArea.addEventListener('drop', e => {
+      e.preventDefault();
+      uploadArea.classList.remove('dragover');
+      const file = e.dataTransfer.files[0];
+      if (file) handleImgFile(file);
+    });
+
+    imgFileInput.addEventListener('change', e => {
+      const file = e.target.files[0];
+      if (file) handleImgFile(file);
+    });
+
+    uploadRemove.onclick = e => {
+      e.stopPropagation();
+      resetUpload();
+    };
+
+    function handleImgFile(file) {
+      if (file.size > 10 * 1024 * 1024) {
+        showToast('图片大小不能超过 10MB', 'error');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = e => {
+        uploadedImageB64 = e.target.result.split(',')[1]; // 去掉 data:image/xxx;base64, 前缀
+        uploadedFileName = file.name;
+        uploadPreviewImg.src = e.target.result;
+        uploadFilename.textContent = file.name + ' (' + (file.size / 1024).toFixed(1) + ' KB)';
+        uploadPlaceholder.style.display = 'none';
+        uploadPreviewWrap.style.display = 'block';
+        img2imgHint.style.display = 'block';
+      };
+      reader.readAsDataURL(file);
+    }
+
+    // ─── 生成图片 ────────────────────────────────────────────────────────
+    generateBtn.onclick = generateImage;
+
+    async function generateImage() {
+      const prompt = promptInput.value.trim();
+      if (!prompt) { showToast('请输入提示词', 'error'); promptInput.focus(); return; }
+      if (!selectedModelId) { showToast('请选择一个模型', 'error'); return; }
+
+      const model = models.find(m => m.id === selectedModelId);
+      const params = {
+        model: selectedModelId,
+        prompt,
+        negative_prompt: negPromptInput.value.trim(),
+        width: parseInt(widthInput.value) || model.defaultWidth,
+        height: parseInt(heightInput.value) || model.defaultHeight,
+        num_steps: parseInt(stepsInput.value) || model.defaultSteps,
+        guidance: parseFloat(guidanceInput.value) || model.defaultGuidance,
+        seed: parseInt(seedInput.value) || undefined,
+        password: passwordInput.value || undefined,
+      };
+
+      // 图生图：附加参考图片 base64
+      if (uploadedImageB64) {
+        params.image_b64 = uploadedImageB64;
+      }
+
+      // 过滤掉 undefined 的字段
+      Object.keys(params).forEach(k => params[k] === undefined && delete params[k]);
+
+      // 显示加载状态
+      loadingText.textContent = '正在生成图片...';
+      loadingModel.textContent = model.name;
+      loadingOverlay.style.display = 'flex';
+      generateBtn.disabled = true;
+      generateBtn.innerHTML = '<div class="spinner"></div><span>生成中...</span>';
+
+      try {
+        const res = await fetch('/api/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(params),
+        });
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ error: 'Unknown error' }));
+          throw new Error(err.error || err.details || `HTTP ${res.status}`);
+        }
+
+        const contentType = res.headers.get('Content-Type') || '';
+        const blob = await res.blob();
+        const imageUrl = URL.createObjectURL(blob);
+
+        // 显示结果
+        if (lastResult?.imageUrl) URL.revokeObjectURL(lastResult.imageUrl);
+        previewImage.src = imageUrl;
+        previewImage.style.display = 'block';
+        placeholder.style.display = 'none';
+        imageWrap.style.display = 'block';
+
+        lastResult = { imageUrl, modelId: selectedModelId, prompt, params, model };
+
+        const sizeKB = (blob.size / 1024).toFixed(1);
+        previewMeta.textContent = `${model.name} · ${params.width}×${params.height} · ${sizeKB} KB`;
+
+        showToast('生成成功！', 'success');
+      } catch (e) {
+        showToast(e.message, 'error');
+      } finally {
+        loadingOverlay.style.display = 'none';
+        generateBtn.disabled = false;
+        generateBtn.innerHTML = '<span>✨</span><span id="btnText">生成图片</span>';
+      }
+    }
+
+    // ─── 下载 ────────────────────────────────────────────────────────────
+    downloadBtn.onclick = () => {
+      if (!lastResult) return;
+      const a = document.createElement('a');
+      a.href = lastResult.imageUrl;
+      const ext = lastResult.model?.outputType || 'png';
+      a.download = `tti_${lastResult.modelId}_${Date.now()}.${ext}`;
+      a.click();
+      showToast('图片已下载', 'success');
+    };
+
+    // ─── 复制参数 ────────────────────────────────────────────────────────
+    copyParamsBtn.onclick = () => {
+      if (!lastResult) return;
+      const { prompt, params, model } = lastResult;
+      const hasImg = uploadedImageB64 ? `（参考图片: ${uploadedFileName}）` : '';
+      const text = `Model: ${model.name}${hasImg}\nPrompt: ${prompt}\nNegative: ${params.negative_prompt || '-'}\nWidth: ${params.width}\nHeight: ${params.height}\nSteps: ${params.num_steps}\nGuidance: ${params.guidance}\nSeed: ${params.seed || 'random'}`;
+      navigator.clipboard.writeText(text).then(() => showToast('参数已复制到剪贴板', 'success'))
+        .catch(() => showToast('复制失败', 'error'));
+    };
+
+    // ─── 启动 ────────────────────────────────────────────────────────────
+    loadModels();
+  </script>
+</body>
+</html>
