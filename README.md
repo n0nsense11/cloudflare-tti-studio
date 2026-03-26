@@ -2,6 +2,9 @@
 
 基于 Cloudflare Workers AI 的文生图/图生图应用，部署在 Cloudflare 全球边缘网络。
 
+## 预览
+![](1.png)
+
 ## 可用模型
 
 | 模型 | 费用 | 特点 |
